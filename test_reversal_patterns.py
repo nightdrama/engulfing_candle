@@ -22,18 +22,19 @@ def test_reversal_patterns_with_polygon_data():
     data_path = "../Data/polygon/us_stocks_sip/day_aggs_v1"
     print("Reading Polygon data...")
 
-    # Use a longer period to get more data for analysis
+        # Use a longer period to get more data for analysis
     start_date = "2025-06-01"
     end_date = "2025-07-31"
 
     try:
-        stock_data = read_polygon_data(data_path, start_date=start_date, end_date=end_date)
+        stock_df = read_polygon_data(data_path, start_date=start_date, end_date=end_date)
 
-        if not stock_data:
+        if stock_df.empty:
             print("No data found for this period")
             return
 
-        print(f"Loaded data for {len(stock_data)} stocks")
+        print(f"Loaded data for {stock_df['symbol'].nunique()} stocks")
+        print(f"Total records: {len(stock_df)}")
 
         # Prepare data for CSV output
         pattern_records = []
@@ -42,9 +43,16 @@ def test_reversal_patterns_with_polygon_data():
         analyzed_stocks = 0
         max_stocks = 100
 
-        for symbol, df in stock_data.items():
+        # Get unique symbols
+        unique_symbols = stock_df['symbol'].unique()
+
+        for symbol in unique_symbols:
             if analyzed_stocks >= max_stocks:
                 break
+
+            # Get data for this symbol
+            df = stock_df[stock_df['symbol'] == symbol].copy()
+            df = df.sort_values('date').reset_index(drop=True)
 
             if len(df) < 10:  # Skip stocks with insufficient data for return calculation
                 continue

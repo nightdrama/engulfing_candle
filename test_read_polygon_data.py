@@ -18,9 +18,9 @@ def read_polygon_data(data_path: str, start_date: str = None, end_date: str = No
         end_date: Optional end date in YYYY-MM-DD format (if None, reads all files)
 
     Returns:
-        Dict mapping stock symbols to DataFrames
+        DataFrame with columns: symbol, date, open, high, low, close, volume
     """
-    stock_data = {}
+    all_records = []
 
     # Parse date filters if provided
     start_dt = None
@@ -94,6 +94,7 @@ def read_polygon_data(data_path: str, start_date: str = None, end_date: str = No
 
                 # Create stock record
                 record = {
+                    'symbol': symbol,
                     'date': file_date,
                     'open': row['open'],
                     'high': row['high'],
@@ -102,9 +103,7 @@ def read_polygon_data(data_path: str, start_date: str = None, end_date: str = No
                     'volume': row['volume']
                 }
 
-                if symbol not in stock_data:
-                    stock_data[symbol] = []
-                stock_data[symbol].append(record)
+                all_records.append(record)
 
             processed_files += 1
 
@@ -114,28 +113,37 @@ def read_polygon_data(data_path: str, start_date: str = None, end_date: str = No
 
     print(f"Successfully processed {processed_files} files")
 
-    # Convert lists to DataFrames
-    for symbol in stock_data:
-        stock_data[symbol] = pd.DataFrame(stock_data[symbol])
-        stock_data[symbol] = stock_data[symbol].sort_values('date')
-
-    return stock_data
+    # Create single DataFrame
+    if all_records:
+        result_df = pd.DataFrame(all_records)
+        result_df = result_df.sort_values(['symbol', 'date'])
+        print(f"Total records: {len(result_df)}")
+        print(f"Unique symbols: {result_df['symbol'].nunique()}")
+        return result_df
+    else:
+        return pd.DataFrame()
 
 def main():
     """Main function to test data reading"""
     data_path = "../Data/polygon/us_stocks_sip/day_aggs_v1"
 
     print("Reading all Polygon stock data...")
-    stock_data = read_polygon_data(data_path,start_date = '2025-08-01', end_date = '2025-08-20')  # No date filters - reads all files
+    stock_df = read_polygon_data(data_path, start_date='2025-08-01', end_date='2025-08-20')
 
-    print(f"\nLoaded data for {len(stock_data)} stocks")
+    if stock_df.empty:
+        print("No data loaded")
+        return
 
-    # Show sample data
-    for symbol in list(stock_data.keys())[:3]:
-        df = stock_data[symbol]
-        print(f"\n{symbol} - {len(df)} records:")
-        print(df.head())
-        print(f"Date range: {df['date'].min()} to {df['date'].max()}")
+    print(f"\nLoaded data for {stock_df['symbol'].nunique()} stocks")
+    print(f"Total records: {len(stock_df)}")
+
+    # Show sample data for first 3 symbols
+    unique_symbols = stock_df['symbol'].unique()[:3]
+    for symbol in unique_symbols:
+        symbol_data = stock_df[stock_df['symbol'] == symbol]
+        print(f"\n{symbol} - {len(symbol_data)} records:")
+        print(symbol_data.head())
+        print(f"Date range: {symbol_data['date'].min()} to {symbol_data['date'].max()}")
 
 if __name__ == "__main__":
     main()
