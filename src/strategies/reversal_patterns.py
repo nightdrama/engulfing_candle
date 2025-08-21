@@ -44,7 +44,8 @@ class ReversalPatterns(BasePattern):
         # Detect patterns starting from second candle (index 1)
         for i in range(1, len(df)):
             # Single candle patterns
-            if self._is_hammer(opens[i], highs[i], lows[i], closes[i]):
+            prev_close = closes[i-1] if i > 0 else None
+            if self._is_hammer(opens[i], highs[i], lows[i], closes[i], prev_close):
                 patterns.iloc[i] = 1  # Bullish reversal
             elif self._is_shooting_star(opens[i], highs[i], lows[i], closes[i]):
                 patterns.iloc[i] = -1  # Bearish reversal
@@ -61,7 +62,7 @@ class ReversalPatterns(BasePattern):
 
         return patterns
 
-    def _is_hammer(self, open_price: float, high: float, low: float, close: float) -> bool:
+    def _is_hammer(self, open_price: float, high: float, low: float, close: float, prev_close: float = None) -> bool:
         """Detect hammer pattern (bullish reversal)"""
         body = abs(close - open_price)
         lower_shadow = min(open_price, close) - low
@@ -71,17 +72,26 @@ class ReversalPatterns(BasePattern):
         # 1. Small body (less than 30% of total range)
         # 2. Long lower shadow (at least 2x body)
         # 3. Small or no upper shadow
+        # 4. Opens below previous close (if prev_close provided)
+        # 5. Close above today's open
         total_range = high - low
-        if total_range == 0:
+        if total_range == 0 or close < open_price:
             return False
 
         body_ratio = body / total_range
         shadow_ratio = lower_shadow / body if body > 0 else 0
         upper_ratio = upper_shadow / total_range
 
-        return (body_ratio < 0.3 and
-                shadow_ratio >= 2.0 and
-                upper_ratio < 0.1)
+        # Basic hammer criteria
+        hammer_criteria = (body_ratio < 0.3 and
+                          shadow_ratio >= 2.0 and
+                          upper_ratio < 0.1)
+
+        # Additional condition: opens below previous close
+        if prev_close is not None:
+            hammer_criteria = hammer_criteria and (open_price < prev_close)
+
+        return hammer_criteria
 
     def _is_shooting_star(self, open_price: float, high: float, low: float, close: float) -> bool:
         """Detect shooting star pattern (bearish reversal)"""
@@ -263,7 +273,8 @@ class ReversalPatterns(BasePattern):
         }
 
         for i in range(1, len(df)):
-            if self._is_hammer(opens[i], highs[i], lows[i], closes[i]):
+            prev_close = closes[i-1] if i > 0 else None
+            if self._is_hammer(opens[i], highs[i], lows[i], closes[i], prev_close):
                 pattern_counts['hammer'] += 1
             elif self._is_shooting_star(opens[i], highs[i], lows[i], closes[i]):
                 pattern_counts['shooting_star'] += 1

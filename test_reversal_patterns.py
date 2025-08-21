@@ -142,7 +142,8 @@ def get_specific_pattern_name(detector, df, index, breakdown):
     closes = df['close'].values
 
     # Check each pattern type
-    if detector._is_hammer(opens[index], highs[index], lows[index], closes[index]):
+    prev_close = closes[index-1] if index > 0 else None
+    if detector._is_hammer(opens[index], highs[index], lows[index], closes[index], prev_close):
         return 'hammer'
     elif detector._is_shooting_star(opens[index], highs[index], lows[index], closes[index]):
         return 'shooting_star'
