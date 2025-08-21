@@ -8,7 +8,7 @@ import os
 # Add the src directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.data.stock_lists import get_sp500_symbols
+from src.data import get_sp500_symbols
 
 def test_wikipedia_stock_lists():
     """Test the new Wikipedia-based stock list fetchers"""

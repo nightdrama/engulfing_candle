@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.data.downloader import PolygonDataDownloader
-from src.data.stock_lists import get_sp500_symbols
+from src.data import get_sp500_symbols
 from src.strategies.engulfing import EngulfingPattern
 
 def test_engulfing_patterns():
@@ -49,7 +49,7 @@ def test_engulfing_patterns():
 
             try:
                 # Download data for this stock
-                data = downloader.download_daily_data(symbol, start_date, end_date)
+                data = downloader.download_ohlcv_data(symbol, start_date, end_date)
 
                 if data is None or len(data) < 2:
                     print(f"  ⚠️  Insufficient data for {symbol}")
