@@ -45,7 +45,7 @@ class ReversalPatterns(BasePattern):
         for i in range(1, len(df)):
             # Single candle patterns
             prev_close = closes[i-1] if i > 0 else None
-            if self._is_hammer(opens[i], highs[i], lows[i], closes[i], prev_close):
+            if self._is_hammer(df, i, prev_close):
                 patterns.iloc[i] = 1  # Bullish reversal
             elif self._is_shooting_star(opens[i], highs[i], lows[i], closes[i]):
                 patterns.iloc[i] = -1  # Bearish reversal
@@ -62,8 +62,33 @@ class ReversalPatterns(BasePattern):
 
         return patterns
 
-    def _is_hammer(self, open_price: float, high: float, low: float, close: float, prev_close: float = None) -> bool:
-        """Detect hammer pattern (bullish reversal)"""
+    def _is_hammer(self, df: pd.DataFrame, index: int, prev_close: float = None) -> bool:
+        """Detect hammer pattern (bullish reversal) with volume and downtrend conditions"""
+        if index < 20:  # Need at least 20 days for volume average
+            return False
+
+        open_price = df.iloc[index]['open']
+        high = df.iloc[index]['high']
+        low = df.iloc[index]['low']
+        close = df.iloc[index]['close']
+        volume = df.iloc[index]['volume']
+
+        # Calculate 20-day average volume
+        volume_20d_avg = df.iloc[max(0, index-20):index]['volume'].mean()
+        volume_condition = volume > (1.5 * volume_20d_avg)
+
+        # Check for downtrend: at least 3 consecutive down days
+        downtrend_condition = False
+        if index >= 3:
+            # Check if the last 3 days were down days (close < open)
+            down_days = 0
+            for i in range(index-3, index):
+                if df.iloc[i]['close'] < df.iloc[i]['open']:
+                    down_days += 1
+                else:
+                    down_days = 0  # Reset counter if not a down day
+            downtrend_condition = down_days >= 3
+
         body = abs(close - open_price)
         lower_shadow = min(open_price, close) - low
         upper_shadow = high - max(open_price, close)
@@ -74,6 +99,8 @@ class ReversalPatterns(BasePattern):
         # 3. Small or no upper shadow
         # 4. Opens below previous close (if prev_close provided)
         # 5. Close above today's open
+        # 6. Volume > 1.5x 20-day average
+        # 7. Stock must be in downtrend (at least 3 consecutive down days)
         total_range = high - low
         if total_range == 0 or close < open_price:
             return False
@@ -85,7 +112,9 @@ class ReversalPatterns(BasePattern):
         # Basic hammer criteria
         hammer_criteria = (body_ratio < 0.3 and
                           shadow_ratio >= 2.0 and
-                          upper_ratio < 0.1)
+                          upper_ratio < 0.1 and
+                          volume_condition and
+                          downtrend_condition)
 
         # Additional condition: opens below previous close
         if prev_close is not None:
@@ -274,7 +303,7 @@ class ReversalPatterns(BasePattern):
 
         for i in range(1, len(df)):
             prev_close = closes[i-1] if i > 0 else None
-            if self._is_hammer(opens[i], highs[i], lows[i], closes[i], prev_close):
+            if self._is_hammer(df, i, prev_close):
                 pattern_counts['hammer'] += 1
             elif self._is_shooting_star(opens[i], highs[i], lows[i], closes[i]):
                 pattern_counts['shooting_star'] += 1
