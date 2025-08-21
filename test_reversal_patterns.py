@@ -67,117 +67,67 @@ def test_reversal_patterns_with_polygon_data():
             engulfing_patterns = engulfing_detector.detect(df)
 
                         # Get pattern details for each occurrence
-            # Process reversal patterns
-            for i, (date, pattern) in enumerate(zip(df['date'], reversal_patterns)):
-                if pattern != 0:
-                    # Determine specific pattern type
-                    pattern_name = get_specific_pattern_name(reversal_detector, df, i, reversal_breakdown)
+            # Process both pattern types
+            for pattern_type, patterns in [('reversal', reversal_patterns), ('engulfing', engulfing_patterns)]:
+                for i, (date, pattern) in enumerate(zip(df['date'], patterns)):
+                    if pattern != 0:
+                        # Get pattern name
+                        if pattern_type == 'reversal':
+                            pattern_name = get_specific_pattern_name(reversal_detector, df, i, reversal_breakdown)
+                        else:
+                            pattern_name = 'bullish_engulfing' if pattern == 1 else 'bearish_engulfing'
 
-                    # Get current price
-                    current_price = df.iloc[i]['close']
+                        # Calculate returns
+                        returns = {
+                            'forward_1d_return': calculate_forward_return(df, i, 1),
+                            'forward_5d_return': calculate_forward_return(df, i, 5),
+                            'forward_10d_return': calculate_forward_return(df, i, 10),
+                            'forward_20d_return': calculate_forward_return(df, i, 20),
+                            'backward_1d_return': calculate_backward_return(df, i, 1),
+                            'backward_5d_return': calculate_backward_return(df, i, 5)
+                        }
 
-                    # Calculate forward returns
-                    forward_1d = calculate_forward_return(df, i, 1)
-                    forward_5d = calculate_forward_return(df, i, 5)
-                    forward_10d = calculate_forward_return(df, i, 10)
-                    forward_20d = calculate_forward_return(df, i, 20)
+                        # Create record
+                        record = {
+                            'symbol': symbol,
+                            'date': date.strftime('%Y-%m-%d'),
+                            'pattern_name': pattern_name,
+                            'pattern_direction': 'Bullish' if pattern == 1 else 'Bearish',
+                            'price_at_pattern': df.iloc[i]['close'],
+                            **returns
+                        }
 
-                    # Calculate backward returns
-                    backward_1d = calculate_backward_return(df, i, 1)
-                    backward_5d = calculate_backward_return(df, i, 5)
-
-                    # Create record
-                    record = {
-                        'symbol': symbol,
-                        'date': date.strftime('%Y-%m-%d'),
-                        'pattern_name': pattern_name,
-                        'pattern_direction': 'Bullish' if pattern == 1 else 'Bearish',
-                        'price_at_pattern': current_price,
-                        'forward_1d_return': forward_1d,
-                        'forward_5d_return': forward_5d,
-                        'forward_10d_return': forward_10d,
-                        'forward_20d_return': forward_20d,
-                        'backward_1d_return': backward_1d,
-                        'backward_5d_return': backward_5d
-                    }
-
-                    pattern_records.append(record)
-
-            # Process engulfing patterns
-            for i, (date, pattern) in enumerate(zip(df['date'], engulfing_patterns)):
-                if pattern != 0:
-                    # Determine engulfing pattern type
-                    pattern_name = 'bullish_engulfing' if pattern == 1 else 'bearish_engulfing'
-
-                    # Get current price
-                    current_price = df.iloc[i]['close']
-
-                    # Calculate forward returns
-                    forward_1d = calculate_forward_return(df, i, 1)
-                    forward_5d = calculate_forward_return(df, i, 5)
-                    forward_10d = calculate_forward_return(df, i, 10)
-                    forward_20d = calculate_forward_return(df, i, 20)
-
-                    # Calculate backward returns
-                    backward_1d = calculate_backward_return(df, i, 1)
-                    backward_5d = calculate_backward_return(df, i, 5)
-
-                    # Create record
-                    record = {
-                        'symbol': symbol,
-                        'date': date.strftime('%Y-%m-%d'),
-                        'pattern_name': pattern_name,
-                        'pattern_direction': 'Bullish' if pattern == 1 else 'Bearish',
-                        'price_at_pattern': current_price,
-                        'forward_1d_return': forward_1d,
-                        'forward_5d_return': forward_5d,
-                        'forward_10d_return': forward_10d,
-                        'forward_20d_return': forward_20d,
-                        'backward_1d_return': backward_1d,
-                        'backward_5d_return': backward_5d
-                    }
-
-                    pattern_records.append(record)
+                        pattern_records.append(record)
 
             analyzed_stocks += 1
 
-        # Create DataFrame and save to CSV
+        # Process and save results
         if pattern_records:
             results_df = pd.DataFrame(pattern_records)
-
-            # Save to CSV
             output_file = 'reversal_pattern_analysis.csv'
             results_df.to_csv(output_file, index=False)
 
-            print(f"\n" + "=" * 60)
+            # Print summary
+            print(f"\n{'='*60}")
             print("Analysis Complete!")
-            print("=" * 60)
-            print(f"Total pattern occurrences: {len(pattern_records)}")
-            print(f"Stocks analyzed: {analyzed_stocks}")
-            print(f"Results saved to: {output_file}")
+            print(f"{'='*60}")
+            print(f"Total patterns: {len(pattern_records)} | Stocks: {analyzed_stocks} | File: {output_file}")
 
-            # Show summary statistics
-            print(f"\nPattern Summary:")
-            pattern_counts = results_df['pattern_name'].value_counts()
-            for pattern, count in pattern_counts.items():
-                print(f"  {pattern}: {count}")
+            # Pattern counts
+            print(f"\nPattern Summary:\n{results_df['pattern_name'].value_counts().to_string()}")
 
+            # Return statistics
+            return_cols = ['forward_1d_return', 'forward_5d_return', 'forward_10d_return',
+                          'forward_20d_return', 'backward_1d_return', 'backward_5d_return']
             print(f"\nReturn Statistics:")
-            return_columns = ['forward_1d_return', 'forward_5d_return', 'forward_10d_return',
-                            'forward_20d_return', 'backward_1d_return', 'backward_5d_return']
+            for col in return_cols:
+                valid = results_df[col].dropna()
+                if len(valid) > 0:
+                    print(f"  {col}: {valid.mean():.4f} ({len(valid)} obs)")
 
-            for col in return_columns:
-                valid_returns = results_df[col].dropna()
-                if len(valid_returns) > 0:
-                    mean_return = valid_returns.mean()
-                    print(f"  {col}: {mean_return:.4f} ({len(valid_returns)} valid observations)")
-
-            # Show sample of results
-            print(f"\nSample Results:")
-            print(results_df.head(10).to_string(index=False))
-
+            print(f"\nSample Results:\n{results_df.head(10).to_string(index=False)}")
         else:
-            print("No patterns detected in the analyzed stocks")
+            print("No patterns detected")
 
     except Exception as e:
         print(f"Error in analysis: {e}")
